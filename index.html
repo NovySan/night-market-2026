@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Truck Idea Vote — EMA Open Studios</title>
+
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  SETUP INSTRUCTIONS — read before deploying                  ║
+  ╠══════════════════════════════════════════════════════════════╣
+  ║                                                              ║
+  ║  1. Go to https://console.firebase.google.com                ║
+  ║  2. Create a new project (free Spark plan is fine)           ║
+  ║  3. Add a Web App to the project                             ║
+  ║  4. Go to Firestore Database → Create database               ║
+  ║     → Start in TEST MODE (or use the rules below)            ║
+  ║  5. Copy your Firebase config into FIREBASE_CONFIG below     ║
+  ║  6. (Optional) Set ADMIN_PASSWORD to something only you know ║
+  ║                                                              ║
+  ║  Firestore security rules (Firestore → Rules tab):           ║
+  ║  ─────────────────────────────────────────────────────────── ║
+  ║  rules_version = '2';                                        ║
+  ║  service cloud.firestore {                                   ║
+  ║    match /databases/{database}/documents {                   ║
+  ║      match /votes/{voter} {                                  ║
+  ║        allow read: if true;                                  ║
+  ║        allow create: if true;                                ║
+  ║        allow update, delete: if false;                       ║
+  ║      }                                                       ║
+  ║    }                                                         ║
+  ║  }                                                           ║
+  ║  ─────────────────────────────────────────────────────────── ║
+  ║  (This lets anyone vote once but not change their vote.)     ║
+  ║                                                              ║
+  ║  GitHub Pages: push index.html to any repo,                  ║
+  ║  go to Settings → Pages → Source: main branch / root         ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+
+<script>
+// ── CONFIGURE THESE ──────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDfEbl_h8Mld96Cs5deshDK6W-KbYg5HIc",
+  authDomain: "night-market-votes.firebaseapp.com",
+  projectId: "night-market-votes",
+  storageBucket: "night-market-votes.firebasestorage.app",
+  messagingSenderId: "39512121233",
+  appId: "1:39512121233:web:b247239e0dec820d334430",
+  measurementId: "G-SJ29TZ568C"
+};
+
+const ADMIN_PASSWORD = "truckmaster";   // change this
+const MAX_VOTES      = 10;              // picks per student
+const EVENT_NAME     = "EMA Story Lab 2 Open Studios 2026";
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #f5f3ee;
+    --surface:  #ffffff;
+    --border:   #ddd9d0;
+    --text:     #1a1814;
+    --muted:    #7a7670;
+    --accent:   #2d2926;
+    --sel-bg:   #1a1814;
+    --sel-text: #f5f3ee;
+    --green:    #2a5c3f;
+    --green-bg: #e8f3ed;
+    --red:      #8b1a1a;
+    --red-bg:   #fceaea;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* ── Layout ── */
+  .shell {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .75rem 1.25rem;
+    max-width: 860px;
+    margin: 0 auto;
+    gap: 1rem;
+  }
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: .04em;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .logo strong { color: var(--text); }
+
+  .counter-pill {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    white-space: nowrap;
+    transition: background .15s, border-color .15s;
+  }
+  .counter-pill.ready {
+    background: var(--sel-bg);
+    color: var(--sel-text);
+    border-color: var(--sel-bg);
+  }
+
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Page system ── */
+  .page { display: none; padding: 2rem 0 4rem; }
+  .page.active { display: block; }
+
+  /* ── Hero ── */
+  .hero { margin-bottom: 2rem; }
+  .hero h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600;
+    line-height: 1.15;
+    margin-bottom: .5rem;
+    letter-spacing: -.02em;
+  }
+  .hero p { color: var(--muted); max-width: 520px; }
+
+  /* ── Name input section ── */
+  .name-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .name-section > div { flex: 1; min-width: 200px; }
+  .name-section label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .name-section input[type="text"] {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .name-section input[type="text"]:focus { border-color: var(--accent); }
+
+  /* ── Controls bar ── */
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .search-wrap {
+    flex: 1;
+    min-width: 180px;
+    position: relative;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    stroke: var(--muted);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    pointer-events: none;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding: 9px 12px 9px 32px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+
+  select {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* ── Ideas grid ── */
+  .grid-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .75rem;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .grid-meta strong { color: var(--text); }
+
+  .ideas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 6px;
+    max-height: 55vh;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-bottom: 1.5rem;
+  }
+  .ideas-grid::-webkit-scrollbar { width: 4px; }
+  .ideas-grid::-webkit-scrollbar-track { background: transparent; }
+  .ideas-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .idea-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    cursor: pointer;
+    text-align: left;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--text);
+    transition: border-color .1s, background .1s, transform .08s;
+    user-select: none;
+  }
+  .idea-card:hover { border-color: #aaa49c; background: #faf9f7; }
+  .idea-card:active { transform: scale(.98); }
+  .idea-card.selected {
+    background: var(--sel-bg);
+    border-color: var(--sel-bg);
+    color: var(--sel-text);
+  }
+  .idea-card.dimmed { opacity: .38; cursor: not-allowed; }
+  .idea-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 26px;
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+  .idea-card.selected .idea-num { color: #a09890; }
+  .idea-cat {
+    font-size: 10px;
+    color: var(--muted);
+    display: block;
+    margin-top: 1px;
+    font-style: italic;
+  }
+  .idea-card.selected .idea-cat { color: #a09890; }
+  .no-results {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* ── Selected chips ── */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-height: 28px;
+    margin-bottom: 1rem;
+  }
+  .chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--sel-bg);
+    color: var(--sel-text);
+    cursor: pointer;
+    transition: opacity .1s;
+  }
+  .chip:hover { opacity: .75; }
+  .chip::after { content: ' ×'; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: background .12s, border-color .12s;
+    text-decoration: none;
+  }
+  .btn:hover { background: #f0ede8; }
+  .btn-primary {
+    background: var(--sel-bg);
+    color: var(--sel-text);
+    border-color: var(--sel-bg);
+    font-size: 15px;
+    padding: 11px 24px;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn-primary:hover { background: #3d3830; }
+  .btn-primary:disabled { opacity: .35; cursor: not-allowed; pointer-events: none; }
+  .btn-sm { padding: 6px 13px; font-size: 13px; }
+
+  /* ── Error / notice ── */
+  .notice {
+    padding: 10px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    margin-top: .75rem;
+  }
+  .notice.error { background: var(--red-bg); color: var(--red); border: 1px solid #f0bebe; }
+  .notice.success { background: var(--green-bg); color: var(--green); border: 1px solid #b8d9c5; }
+
+  /* ── Done page ── */
+  .done-hero {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+  }
+  .done-mark {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--sel-bg);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1.25rem;
+  }
+  .done-mark svg { width: 26px; height: 26px; stroke: var(--sel-text); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .done-hero h1 { font-size: 1.8rem; margin-bottom: .5rem; }
+  .done-hero p { color: var(--muted); }
+
+  .picks-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+  }
+  .picks-list-header {
+    padding: .75rem 1.25rem;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .pick-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: .65rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .pick-row:last-child { border-bottom: none; }
+  .pick-n {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 20px;
+  }
+
+  /* ── Results page ── */
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: .75rem; }
+  .results-header h1 { font-size: 1.8rem; font-weight: 600; letter-spacing: -.02em; }
+
+  .stat-row { display: flex; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat {
+    flex: 1; min-width: 100px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    text-align: center;
+  }
+  .stat-val { font-size: 1.6rem; font-weight: 600; letter-spacing: -.02em; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .05em; }
+
+  .tab-row { display: flex; gap: 6px; margin-bottom: 1rem; }
+  .tab {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    background: var(--surface);
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--muted);
+    transition: all .12s;
+  }
+  .tab.active { background: var(--sel-bg); color: var(--sel-text); border-color: var(--sel-bg); }
+
+  .results-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .result-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: .65rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-rank {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .result-rank.podium { color: var(--text); font-weight: 600; }
+  .result-name { font-size: 13px; flex: 1; min-width: 0; line-height: 1.3; }
+  .result-bar-wrap {
+    width: 90px;
+    height: 6px;
+    background: var(--bg);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .result-bar {
+    height: 6px;
+    background: var(--sel-bg);
+    border-radius: 3px;
+    transition: width .4s ease;
+  }
+  .result-votes {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ── Admin section ── */
+  .admin-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .admin-section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .admin-unlock { display: flex; gap: 8px; }
+  .admin-unlock input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+  .voter-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .voter-table th {
+    text-align: left;
+    padding: .4rem .5rem;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .voter-table td { padding: .45rem .5rem; border-bottom: 1px solid var(--border); }
+  .voter-table tr:last-child td { border-bottom: none; }
+  .voter-picks { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+  /* ── Spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--text);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  /* ── Loading overlay ── */
+  #loading-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+    z-index: 999;
+    transition: opacity .3s;
+  }
+  #loading-screen.hide { opacity: 0; pointer-events: none; }
+  #loading-screen p { font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
+  <p>Loading…</p>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo"><strong>EMA</strong> / Open Studios Vote</div>
+    <div class="header-actions">
+      <span class="counter-pill" id="header-counter">0 / 10 selected</span>
+      <button class="btn btn-sm" id="nav-results">Results</button>
+    </div>
+  </div>
+</header>
+
+<!-- ── VOTE PAGE ── -->
+<div class="page active" id="page-vote">
+  <div class="shell">
+    <div class="hero">
+      <h1>Pick your top&nbsp;10 trucks.</h1>
+      <p>Browse all 701 ideas from the brainstorm. Select exactly 10 you'd most want to see built for Open Studios.</p>
+    </div>
+
+    <div class="name-section">
+      <div>
+        <label for="voter-name">Your name</label>
+        <input type="text" id="voter-name" placeholder="First Last" autocomplete="name">
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-box" placeholder="Search ideas or type a number…">
+      </div>
+      <select id="cat-filter">
+        <option value="">All categories</option>
+      </select>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <div class="grid-meta">
+      <span id="grid-count">Loading ideas…</span>
+      <span id="grid-hint" style="font-style:italic"></span>
+    </div>
+
+    <div class="ideas-grid" id="ideas-grid"></div>
+
+    <div id="vote-error"></div>
+
+    <button class="btn btn-primary" id="submit-btn" disabled>Submit my top 10</button>
+  </div>
+</div>
+
+<!-- ── DONE PAGE ── -->
+<div class="page" id="page-done">
+  <div class="shell">
+    <div class="done-hero">
+      <div class="done-mark">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h1>Vote recorded!</h1>
+      <p id="done-name-msg">Thanks — your picks are locked in.</p>
+    </div>
+
+    <div class="picks-list">
+      <div class="picks-list-header">Your top 10</div>
+      <div id="done-picks"></div>
+    </div>
+
+    <button class="btn btn-primary" id="done-to-results">See live results</button>
+  </div>
+</div>
+
+<!-- ── RESULTS PAGE ── -->
+<div class="page" id="page-results">
+  <div class="shell">
+    <div class="results-header">
+      <h1>Live results</h1>
+      <button class="btn btn-sm" id="results-refresh">Refresh</button>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat"><div class="stat-val" id="stat-voters">—</div><div class="stat-label">students voted</div></div>
+      <div class="stat"><div class="stat-val" id="stat-ideas">—</div><div class="stat-label">ideas with votes</div></div>
+      <div class="stat"><div class="stat-val" id="stat-top">—</div><div class="stat-label">top vote count</div></div>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab active" data-tab="top">Top 30</button>
+      <button class="tab" data-tab="all">All 701</button>
+      <button class="tab" data-tab="zero">No votes yet</button>
+    </div>
+
+    <div class="results-list" id="results-list"></div>
+
+    <!-- Admin section -->
+    <div class="admin-section" id="admin-section">
+      <h3>Admin</h3>
+      <div id="admin-locked">
+        <div class="admin-unlock">
+          <input type="password" id="admin-pass-input" placeholder="Admin password">
+          <button class="btn btn-sm" id="admin-unlock-btn">Unlock</button>
+        </div>
+        <div id="admin-error"></div>
+      </div>
+      <div id="admin-panel" style="display:none">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">All votes — one row per student.</p>
+        <table class="voter-table" id="voter-table">
+          <thead><tr><th>#</th><th>Name</th><th>Picks (idea IDs)</th></tr></thead>
+          <tbody id="voter-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:2rem">
+      <button class="btn btn-sm" id="results-back">Back to voting</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ── Data ────────────────────────────────────────────────────────────────────
+const IDEAS = [{"id":1,"name":"Bad Luck Tester Truck","category":"Interactive"},{"id":2,"name":"Dramatic Scanner Guy","category":"Character Experience"},{"id":3,"name":"1920s-40s Speakeasy Truck","category":"Themed Environment"},{"id":4,"name":"Sonic Simulator Truck","category":"Gaming/Sim"},{"id":5,"name":"TSA Simulator Truck","category":"Simulator"},{"id":6,"name":"Mario Simulator Truck","category":"Gaming/Sim"},{"id":7,"name":"Janitor Simulator Truck","category":"Simulator"},{"id":8,"name":"Fake Money Poker/Blackjack","category":"Games"},{"id":9,"name":"Legal Weddings Truck","category":"Experience"},{"id":10,"name":"Office Job Simulator","category":"Simulator"},{"id":11,"name":"Amazing Digital Circus Truck","category":"Pop Culture"},{"id":12,"name":"Land Canoeing Truck","category":"Absurdist"},{"id":13,"name":"Bar Rescue Truck","category":"Pop Culture"},{"id":14,"name":"Dr. Easterman Sleeper Agent Activation","category":"Character Experience"},{"id":15,"name":"Annoying Things Truck","category":"Sensory"},{"id":16,"name":"Try Not To Leave The Truck Challenge","category":"Challenge"},{"id":17,"name":"Improv a Speech to the US / Big Company","category":"Performance"},{"id":18,"name":"Dork Bowling","category":"Games"},{"id":19,"name":"Most Likely To Truck","category":"Social Games"},{"id":20,"name":"FNAF Truck","category":"Gaming/Sim"},{"id":21,"name":"Dodge Lasers to Get Gem","category":"Interactive"},{"id":22,"name":"Rob a Bank","category":"Simulator"},{"id":23,"name":"You Know Her Really Well Truck","category":"Social Games"},{"id":24,"name":"Tightrope Walker","category":"Physical Challenge"},{"id":25,"name":"Iron Lung Truck","category":"Absurdist"},{"id":26,"name":"Battle of the Bands (Guitar Hero)","category":"Games"},{"id":27,"name":"Jaws Simulator Truck","category":"Pop Culture"},{"id":28,"name":"Relationship Stages Truck Series","category":"Themed Environment"},{"id":29,"name":"Lego Good Cop POV Truck","category":"Pop Culture"},{"id":30,"name":"Hot Dog Production Line Experience","category":"Simulator"},{"id":31,"name":"Throw Tomatoes at the Town Fool","category":"Physical/Performance"},{"id":32,"name":"Costco Rotisserie Chicken Simulator","category":"Absurdist"},{"id":33,"name":"AM Torments You Truck","category":"Horror"},{"id":34,"name":"US State of the Union Address POV","category":"Performance"},{"id":35,"name":"Award Truck","category":"Performance"},{"id":36,"name":"Jonah and the Whale Experience","category":"Absurdist"},{"id":37,"name":"Role Play Truck","category":"Interactive"},{"id":38,"name":"Leftover Food in the Microwave Experience","category":"Absurdist"},{"id":39,"name":"Popcorn in a Pan Simulator","category":"Simulator"},{"id":40,"name":"Tortilla Slapping","category":"Absurdist"},{"id":41,"name":"Gas Leak Truck","category":"Absurdist"},{"id":42,"name":"70s Disco Room","category":"Themed Environment"},{"id":43,"name":"WebMD Simulator","category":"Comedy"},{"id":44,"name":"Movie Night Truck","category":"Entertainment"},{"id":45,"name":"Milk a Cow Truck","category":"Simulator"},{"id":46,"name":"Clown College Truck","category":"Performance"},{"id":47,"name":"Silence Room","category":"Challenge"},{"id":48,"name":"90s Rave with Club Kids","category":"Themed Environment"},{"id":49,"name":"7 Minutes in Heaven Truck","category":"Social Games"},{"id":50,"name":"Jungle Gym Truck","category":"Physical Challenge"},{"id":51,"name":"JFK Reenactment","category":"Historical Sim"},{"id":52,"name":"Funeral — You're the Body","category":"Absurdist"},{"id":53,"name":"Halloween 3 Hypnotizing","category":"Horror"},{"id":54,"name":"Bathroom Stall Truck","category":"Absurdist"},{"id":55,"name":"Meet Your Future In-Laws Truck","category":"Social Sim"},{"id":56,"name":"Final 7 Minutes of Memories Truck","category":"Emotional"},{"id":57,"name":"Obi-Wan POV of Qui-Gon's Death","category":"Pop Culture"},{"id":58,"name":"The Black Lodge Truck","category":"Pop Culture"},{"id":59,"name":"Getaway Driver Truck","category":"Simulator"},{"id":60,"name":"Bad Advice Truck","category":"Comedy"},{"id":61,"name":"Alien Probing Truck","category":"Absurdist"},{"id":62,"name":"Tarot Room","category":"Mystical"},{"id":63,"name":"Dexter Simulator","category":"Pop Culture"},{"id":64,"name":"Billionaire Playboy Philanthropist Truck","category":"Character Experience"},{"id":65,"name":"Roleplaying Games Truck","category":"Games"},{"id":66,"name":"VR Games Truck","category":"Gaming/Sim"},{"id":67,"name":"Game Night Truck","category":"Games"},{"id":68,"name":"Detention Truck","category":"Comedy"},{"id":69,"name":"Office-Style Afterlife","category":"Themed Environment"},{"id":70,"name":"Viking Funeral Truck","category":"Historical Sim"},{"id":71,"name":"Drumset Room","category":"Music"},{"id":72,"name":"Fortune Teller","category":"Mystical"},{"id":73,"name":"Date a Fish Truck","category":"Absurdist"},{"id":74,"name":"On Call with John Pork","category":"Pop Culture"},{"id":75,"name":"Death in a Suit","category":"Character Experience"},{"id":76,"name":"Brainrot Room","category":"Sensory"},{"id":77,"name":"Interrogation Truck","category":"Interactive"},{"id":78,"name":"Silent Film Room","category":"Themed Environment"},{"id":79,"name":"Doctor's Office Visit (Evil)","category":"Character Experience"},{"id":80,"name":"Just Dance Truck","category":"Music/Games"},{"id":81,"name":"Acid Vat (Dyed Water)","category":"Physical"},{"id":82,"name":"Murder Mystery in a 1920s Dressing Room","category":"Interactive"},{"id":83,"name":"Uncle Ben Simulator","category":"Pop Culture"},{"id":84,"name":"Flying Graysons Experience","category":"Pop Culture"},{"id":85,"name":"Dunce Simulator","category":"Comedy"},{"id":86,"name":"Performative Male Simulator","category":"Social Commentary"},{"id":87,"name":"Carnival Experience","category":"Themed Environment"},{"id":88,"name":"Tropical Beach Vacation Truck","category":"Themed Environment"},{"id":89,"name":"Duck Race","category":"Games"},{"id":90,"name":"Rock 'Em Sock 'Em with Giant Foam Gloves","category":"Physical Challenge"},{"id":91,"name":"Multiple Spider-Man Meme Truck","category":"Pop Culture"},{"id":92,"name":"Gender Reassignment Surgery Truck","category":"Absurdist"},{"id":93,"name":"Luxury Life of Cardboard Box Living","category":"Absurdist"},{"id":94,"name":"Turn Into a Lemon","category":"Absurdist"},{"id":95,"name":"Death Sentence Experience","category":"Simulator"},{"id":96,"name":"AA Meeting Truck","category":"Social Sim"},{"id":97,"name":"Somebody Is Always Watching Through the Crack","category":"Horror"},{"id":98,"name":"Mud Wrestling Truck","category":"Physical Challenge"},{"id":99,"name":"Rooftop Hitman Simulator","category":"Gaming/Sim"},{"id":100,"name":"Vegas Wedding Truck","category":"Experience"},{"id":101,"name":"Mad Men Truck","category":"Themed Environment"},{"id":102,"name":"Upside Down Room","category":"Themed Environment"},{"id":103,"name":"Be Uncomfortable Room","category":"Sensory"},{"id":104,"name":"9/11 Simulator","category":"Simulator"},{"id":105,"name":"Meat Grinder Room","category":"Absurdist"},{"id":106,"name":"Mini Scale Room — Pretend to Be Giants","category":"Themed Environment"},{"id":107,"name":"Mosh Pit / Punk Show Truck","category":"Music"},{"id":108,"name":"Diffuse a Bomb","category":"Interactive"},{"id":109,"name":"Western Duel","category":"Interactive"},{"id":110,"name":"Science Truck","category":"Educational"},{"id":111,"name":"Hand Painting Only Truck","category":"Art"},{"id":112,"name":"Medieval / Fantasy Tavern","category":"Themed Environment"},{"id":113,"name":"Understimulation Room","category":"Sensory"},{"id":114,"name":"Court Sentencing Truck","category":"Interactive"},{"id":115,"name":"TV Show Genre Rooms","category":"Pop Culture"},{"id":116,"name":"Human Petting Zoo","category":"Absurdist"},{"id":117,"name":"Stage Musical on the Fly","category":"Performance"},{"id":118,"name":"Blindfold Maze","category":"Challenge"},{"id":119,"name":"Socialist vs Communist Truck Beef","category":"Comedy"},{"id":120,"name":"Pope POV Truck","category":"Character Experience"},{"id":121,"name":"Maury Sim / You Are Not the Father Truck","category":"Pop Culture"},{"id":122,"name":"Conspiracy Board Room","category":"Interactive"},{"id":123,"name":"Making Alien Drinks","category":"Food/Drink"},{"id":124,"name":"The Monkees Head Box","category":"Pop Culture"},{"id":125,"name":"Nerf Guns / Goggles / Cowboy Hats Truck","category":"Physical"},{"id":126,"name":"Ask an AI (It's Just an EMA Student)","category":"Comedy"},{"id":127,"name":"Slap Truck","category":"Physical"},{"id":128,"name":"Birthday Party Truck","category":"Themed Environment"},{"id":129,"name":"Write by Candlelight Truck","category":"Experience"},{"id":130,"name":"Victorian Mourning Simulator","category":"Historical Sim"},{"id":131,"name":"Trade Stall — Trade Up","category":"Interactive"},{"id":132,"name":"Random Amazon Package Pickup","category":"Interactive"},{"id":133,"name":"Finger Skate Park Arena","category":"Games"},{"id":134,"name":"Truck of Happiness and Joy","category":"Emotional"},{"id":135,"name":"Buttons and Levers and Dials Truck","category":"Interactive"},{"id":136,"name":"The Children Yearn for the Mines (Mining Truck)","category":"Simulator"},{"id":137,"name":"Nuclear Family Dining Room with Countdown","category":"Themed Environment"},{"id":138,"name":"5 Pills, One Is Randomly LSD","category":"Absurdist"},{"id":139,"name":"One Big Freaky 70s Room","category":"Themed Environment"},{"id":140,"name":"Getting Into Harvard Experience","category":"Comedy"},{"id":141,"name":"Indie Film Night Market","category":"Entertainment"},{"id":142,"name":"Haunted Truck","category":"Horror"},{"id":143,"name":"Airplane Seats / Turbulence / Snack Cart Truck","category":"Simulator"},{"id":144,"name":"Bad/Interruptive Student Simulator","category":"Comedy"},{"id":145,"name":"Electric Chair Simulator","category":"Absurdist"},{"id":146,"name":"People Theorize / Make Headcanons About You Truck","category":"Social"},{"id":147,"name":"DMV Simulator (Zootopia-style)","category":"Simulator"},{"id":148,"name":"Corkboard + Twine + Paper + Pushpins Truck","category":"Interactive"},{"id":149,"name":"Divorce Sim Truck","category":"Social Sim"},{"id":150,"name":"Wrap You in Wrapping Paper (Live Action Grinch)","category":"Physical"},{"id":151,"name":"Freak Out Room","category":"Sensory"},{"id":152,"name":"Disco Lasers Lights Everywhere","category":"Sensory/Music"},{"id":153,"name":"Nerf War but Tiny","category":"Games"},{"id":154,"name":"Rave Room","category":"Music"},{"id":155,"name":"John Waters Room","category":"Pop Culture"},{"id":156,"name":"Hug a Stranger Through a Mesh Wall Truck","category":"Social"},{"id":157,"name":"Destroy This Room / Rip Up This Room (Paper)","category":"Physical"},{"id":158,"name":"Very Obvious Human Trap","category":"Comedy"},{"id":159,"name":"Labyrinth David Bowie Room","category":"Pop Culture"},{"id":160,"name":"Mirrors Everywhere","category":"Sensory"},{"id":161,"name":"Visiting Old Grandma — Move Old Vinyls","category":"Character Experience"},{"id":162,"name":"Burrito Blanket Microwave","category":"Absurdist"},{"id":163,"name":"Mood Ring Room","category":"Interactive"},{"id":164,"name":"Paparazzi Truck","category":"Character Experience"},{"id":165,"name":"Emotions Bar","category":"Themed Environment"},{"id":166,"name":"Batman Interrogation Truck","category":"Pop Culture"},{"id":167,"name":"Skibidi Toilet Experience","category":"Pop Culture"},{"id":168,"name":"Russian Roulette Truck (Nerf Guns)","category":"Games"},{"id":169,"name":"Smash or Pass Room","category":"Social Games"},{"id":170,"name":"Season Room","category":"Interactive"},{"id":171,"name":"Rocky Horror Picture Show Truck with Shadow Cast","category":"Performance"},{"id":172,"name":"Forest in a Truck","category":"Themed Environment"},{"id":173,"name":"Cloud Room","category":"Themed Environment"},{"id":174,"name":"Carve a Piece Off the Room and Keep It","category":"Interactive"},{"id":175,"name":"Milk and Cookies Truck","category":"Food/Drink"},{"id":176,"name":"Stealing a Dude's Dream Journal Simulator","category":"Absurdist"},{"id":177,"name":"Slime Room with Charms/Mix-ins","category":"Sensory"},{"id":178,"name":"Library Truck","category":"Themed Environment"},{"id":179,"name":"Sleep in Public / Be Woken by a Stranger","category":"Social"},{"id":180,"name":"Sound Recording Echo Room","category":"Sensory"},{"id":181,"name":"Duel Room (Nerf Guns)","category":"Games"},{"id":182,"name":"Twin Peaks / Black Lodge Room","category":"Pop Culture"},{"id":183,"name":"Bird Cage Truck","category":"Absurdist"},{"id":184,"name":"Graveyard with Vibes per Grave","category":"Themed Environment"},{"id":185,"name":"Runaway Night Truck","category":"Experience"},{"id":186,"name":"Pillow Screaming Room","category":"Emotional"},{"id":187,"name":"Storyboard Maker (One Slide Per Person)","category":"Collaborative Art"},{"id":188,"name":"Evil Scientist Experimentation Truck","category":"Character Experience"},{"id":189,"name":"Backrooms Grass/Pool in a Truck","category":"Horror"},{"id":190,"name":"Giant Puzzle (100,000 Pieces)","category":"Games"},{"id":191,"name":"Silly String Chaos Room","category":"Physical"},{"id":192,"name":"Corn Field Simulator","category":"Themed Environment"},{"id":193,"name":"Solid Snake from Metal Gear Solid Truck","category":"Gaming/Sim"},{"id":194,"name":"JROTC Recruitment Center","category":"Simulator"},{"id":195,"name":"Craft Truck / Kindergarten Art Truck","category":"Art"},{"id":196,"name":"Simulation as an Animal","category":"Simulator"},{"id":197,"name":"Pumpkin Patch in a Truck","category":"Seasonal"},{"id":198,"name":"Dance Party Truck","category":"Music"},{"id":199,"name":"Halloween Trick or Treating / Front Door","category":"Seasonal"},{"id":200,"name":"Puppies Truck","category":"Animals"},{"id":201,"name":"Act Like a Celebrity in a Panel","category":"Performance"},{"id":202,"name":"Music Machine (Notes on Tickets/Lanyards)","category":"Interactive"},{"id":203,"name":"Sumo Wrestling Truck","category":"Physical Challenge"},{"id":204,"name":"Speakeasy but with Milk","category":"Absurdist"},{"id":205,"name":"Plush Walls / Soft Everything Room","category":"Sensory"},{"id":206,"name":"Dating Game — Have You Cheated?","category":"Social Games"},{"id":207,"name":"Confession Box Piñata","category":"Interactive"},{"id":208,"name":"You're in a Coral Reef","category":"Themed Environment"},{"id":209,"name":"Jury Lineup Truck","category":"Interactive"},{"id":210,"name":"Wacky Mirror Room","category":"Sensory"},{"id":211,"name":"Truck with White Walls People Can Paint On","category":"Art"},{"id":212,"name":"Freaky Psych Ward Truck","category":"Horror"},{"id":213,"name":"Giant Shared Bucket List","category":"Collaborative"},{"id":214,"name":"Friendship Bracelets Summer Camp Truck","category":"Art"},{"id":215,"name":"Metamorphosis Truck","category":"Absurdist"},{"id":216,"name":"DMV Waiting Simulator","category":"Simulator"},{"id":217,"name":"Hamster Cage Human — Watch and Feed Me","category":"Absurdist"},{"id":218,"name":"Fart Room","category":"Absurdist"},{"id":219,"name":"I SPY Room","category":"Art/Games"},{"id":220,"name":"Pose as a Museum Statue","category":"Performance"},{"id":221,"name":"Bomb Room (They Explode You)","category":"Absurdist"},{"id":222,"name":"Little Shop of Horrors Truck","category":"Pop Culture"},{"id":223,"name":"60-Second Speed Portrait (Bad Artist)","category":"Art/Comedy"},{"id":224,"name":"Escape Room — Break INTO the Truck","category":"Interactive"},{"id":225,"name":"Casting Couch Truck","category":"Comedy"},{"id":226,"name":"Draw on the Walls/Ceiling/Floor (Digital Save)","category":"Art"},{"id":227,"name":"Panel of EMA Students Judge Your Relationship","category":"Social"},{"id":228,"name":"My Little Pony Room","category":"Pop Culture"},{"id":229,"name":"You're in a Bowl of Soup (GMM Reference)","category":"Pop Culture"},{"id":230,"name":"You've Been Served Experience","category":"Comedy"},{"id":231,"name":"Oval Office — Pretend to Be President","category":"Character Experience"},{"id":232,"name":"Reverse Build-a-Bear — Gut the Plushie","category":"Absurdist"},{"id":233,"name":"Try on Straitjackets","category":"Physical"},{"id":234,"name":"Cheese Tasting Truck","category":"Food/Drink"},{"id":235,"name":"Group Cry Room","category":"Emotional"},{"id":236,"name":"Nap Time Truck","category":"Absurdist"},{"id":237,"name":"You're Stuck Inside a Computer Truck","category":"Gaming/Sim"},{"id":238,"name":"Hit Your Friends with One Paintball","category":"Physical"},{"id":239,"name":"Your Last Words Generator (Before Paintball)","category":"Comedy"},{"id":240,"name":"Filibuster Truck","category":"Performance"},{"id":241,"name":"Tiny Courtroom","category":"Interactive"},{"id":242,"name":"Silent Therapy Session (No Talking)","category":"Social"},{"id":243,"name":"Stargazing Truck","category":"Themed Environment"},{"id":244,"name":"Slime Room","category":"Sensory"},{"id":245,"name":"Hamster Wheel Room","category":"Physical"},{"id":246,"name":"Smash or Pass the US Presidents","category":"Social Games"},{"id":247,"name":"Gambling of Your Choice","category":"Games"},{"id":248,"name":"Transcription Room (Outside Display)","category":"Interactive"},{"id":249,"name":"Bad Beatles Impressions Contest","category":"Music/Comedy"},{"id":250,"name":"Pretentious Movie Buff Nerd Truck","category":"Comedy"},{"id":251,"name":"I'm Just Death — Discover My Murder Case","category":"Interactive"},{"id":252,"name":"Food Fight Truck","category":"Physical"},{"id":253,"name":"Overstimulation Room","category":"Sensory"},{"id":254,"name":"Crime Scene with Evidence Truck","category":"Interactive"},{"id":255,"name":"Willy Wonka Everything-Is-Edible Room","category":"Food/Drink"},{"id":256,"name":"News Reporter with Teleprompter on the Fly","category":"Performance"},{"id":257,"name":"Cult Circle Truck","category":"Absurdist"},{"id":258,"name":"Tiny Concert in a Truck","category":"Music"},{"id":259,"name":"Come Up with Conspiracy Theories","category":"Interactive"},{"id":260,"name":"Squats and Pushups Truck","category":"Physical"},{"id":261,"name":"I'm a Court Jester — Give Me Money for a Funny","category":"Performance"},{"id":262,"name":"Mirror Maze Truck","category":"Interactive"},{"id":263,"name":"Hot Potato with Glitter Bomb or Baking Soda/Vinegar Balloon","category":"Games"},{"id":264,"name":"Marriage Truck","category":"Experience"},{"id":265,"name":"Become an Alien Truck","category":"Absurdist"},{"id":266,"name":"Giant Room — You're an Ant","category":"Themed Environment"},{"id":267,"name":"Twitch Livestream with Switching Hosts","category":"Interactive"},{"id":268,"name":"Lie Detector Room","category":"Interactive"},{"id":269,"name":"Greenhouse Truck","category":"Themed Environment"},{"id":270,"name":"All the Fidget Toys","category":"Sensory"},{"id":271,"name":"Angry Drill Sergeant Yelling at You","category":"Character Experience"},{"id":272,"name":"Silent Truck","category":"Sensory"},{"id":273,"name":"Invisible Truck","category":"Absurdist"},{"id":274,"name":"Dunk Tank Truck","category":"Physical"},{"id":275,"name":"Try to Evade the Draft Truck","category":"Historical Sim"},{"id":276,"name":"Gambling Simulator (Rigged in Your Favor)","category":"Games"},{"id":277,"name":"Solve a 1-Minute Murder","category":"Interactive"},{"id":278,"name":"WW3 Draft Truck","category":"Simulator"},{"id":279,"name":"Girlfriend Simulator","category":"Social Sim"},{"id":280,"name":"Room to Erase a Bad Social Interaction","category":"Emotional"},{"id":281,"name":"Giant Shared To-Do List","category":"Collaborative"},{"id":282,"name":"Human Zoo Truck","category":"Absurdist"},{"id":283,"name":"Finger Painting All Over Everything","category":"Art"},{"id":284,"name":"Severance Office Room","category":"Pop Culture"},{"id":285,"name":"Spy Gear Room","category":"Interactive"},{"id":286,"name":"2-Minute Ballet/Tap Lesson from a Horse/Kangaroo","category":"Comedy"},{"id":287,"name":"Giant Chalkboard Math (P vs NP)","category":"Educational"},{"id":288,"name":"Black and White Detective Truck","category":"Themed Environment"},{"id":289,"name":"Boot Camp Truck","category":"Simulator"},{"id":290,"name":"Emergency Surgery Truck","category":"Simulator"},{"id":291,"name":"Actors Explaining You're the Only One Who Can Do This","category":"Performance"},{"id":292,"name":"Stuffed Animal Taxidermy","category":"Art"},{"id":293,"name":"Teach Origami Cranes and Fill the Room","category":"Art"},{"id":294,"name":"Turtle with a Straw in Its Mouth Simulator","category":"Educational"},{"id":295,"name":"Captcha Truck","category":"Interactive"},{"id":296,"name":"Giant Screen — Zoom/Call Your Mom","category":"Social"},{"id":297,"name":"Sims Simulator — Control What Others Do","category":"Interactive"},{"id":298,"name":"You're in an Egg and Hatch in a Nest","category":"Absurdist"},{"id":299,"name":"Giant Trinket Trade Box","category":"Interactive"},{"id":300,"name":"Speed Dating Truck","category":"Social"},{"id":301,"name":"Womb Simulator","category":"Absurdist"},{"id":302,"name":"Couples Therapy with a Stranger","category":"Social Sim"},{"id":303,"name":"You're Witnessing a Proposal Truck","category":"Experience"},{"id":304,"name":"Pay to Rig Games Against Someone Else","category":"Games"},{"id":305,"name":"Buried Alive Simulator","category":"Horror"},{"id":306,"name":"Go In and Tell Problems — They Just Nod","category":"Emotional"},{"id":307,"name":"Cigars Truck","category":"Themed Environment"},{"id":308,"name":"Buying Superpowers Truck","category":"Absurdist"},{"id":309,"name":"Carnival Booth with Balloon Random Substances","category":"Interactive"},{"id":310,"name":"Hot Dog House","category":"Absurdist"},{"id":311,"name":"PIN Art Toy Walls","category":"Interactive"},{"id":312,"name":"National Tragedy Simulator","category":"Simulator"},{"id":313,"name":"Like the Game Clue","category":"Games"},{"id":314,"name":"Peeing Your Pants at School Experience","category":"Comedy"},{"id":315,"name":"August 31st 1997 Simulator","category":"Historical Sim"},{"id":316,"name":"Karaoke Truck","category":"Music"},{"id":317,"name":"Real Life Guess Who","category":"Games"},{"id":318,"name":"Elevator Plummet Simulator","category":"Simulator"},{"id":319,"name":"Blind Karaoke","category":"Music/Comedy"},{"id":320,"name":"9/11 Simulator","category":"Simulator"},{"id":321,"name":"There's Something Under Your Bed Sim","category":"Horror"},{"id":322,"name":"High Intensity Experience","category":"Physical"},{"id":323,"name":"June 28th 1914 Simulator","category":"Historical Sim"},{"id":324,"name":"Four Square Truck","category":"Physical/Games"},{"id":325,"name":"Relive Your Parents' Divorce","category":"Comedy/Emotional"},{"id":326,"name":"How Long Can You Hold Your Breath Truck","category":"Challenge"},{"id":327,"name":"Room Full of Oddities and Trash Art","category":"Art"},{"id":328,"name":"Embarrassment Truck","category":"Comedy"},{"id":329,"name":"Duck Tank Truck","category":"Absurdist"},{"id":330,"name":"Goth Mommy Truck","category":"Character Experience"},{"id":331,"name":"Idiot Room","category":"Comedy"},{"id":332,"name":"November 22nd 1963 Simulator","category":"Historical Sim"},{"id":333,"name":"Spy Kids Villain Truck","category":"Pop Culture"},{"id":334,"name":"Gender Simulator / Gender Eu/Dysphoria Simulator","category":"Social Commentary"},{"id":335,"name":"Bipedal Goldfish Murder Mystery","category":"Absurdist"},{"id":336,"name":"Monsters Inc Truck","category":"Pop Culture"},{"id":337,"name":"Jump Rope Truck","category":"Physical"},{"id":338,"name":"Sticky Note Truck","category":"Collaborative Art"},{"id":339,"name":"Western Theme Gay Truck","category":"Themed Environment"},{"id":340,"name":"Futuristic Diner (Back to the Future 2015)","category":"Pop Culture"},{"id":341,"name":"CPR Truck","category":"Educational"},{"id":342,"name":"Convince Your Parents to Get Divorced Truck","category":"Comedy"},{"id":343,"name":"Earthquake Simulator","category":"Simulator"},{"id":344,"name":"People Shaking the Truck Outside","category":"Physical"},{"id":345,"name":"Meet Ryan Gosling","category":"Character Experience"},{"id":346,"name":"Be a Truck Driver in a Truck Truck","category":"Meta/Absurdist"},{"id":347,"name":"Break Out of Jail Truck","category":"Interactive"},{"id":348,"name":"Get Roasted Truck","category":"Comedy"},{"id":349,"name":"Become a Mermaid Truck","category":"Absurdist"},{"id":350,"name":"Be an Animal in a Zoo Simulator","category":"Simulator"},{"id":351,"name":"Air Guitar Contest","category":"Music/Comedy"},{"id":352,"name":"Make Your Own Makeup Truck","category":"Art"},{"id":353,"name":"A Depressed Clown in a Room","category":"Character Experience"},{"id":354,"name":"High School Musical Dramatic Monologues Only","category":"Performance"},{"id":355,"name":"Criterion Closet Truck","category":"Pop Culture"},{"id":356,"name":"The Bad Movies Criterion Closet","category":"Pop Culture"},{"id":357,"name":"Checkers But You're the Pieces and Attack Each Other","category":"Physical/Games"},{"id":358,"name":"The Complaining Truck","category":"Comedy"},{"id":359,"name":"Drunk Driving Simulator (Trunk)","category":"Simulator"},{"id":360,"name":"Male Incel Conversation Sim","category":"Social Commentary"},{"id":361,"name":"Shakespeare Reenactment","category":"Performance"},{"id":362,"name":"BookTok Simulator","category":"Pop Culture"},{"id":363,"name":"Oregon Trail Simulator","category":"Gaming/Sim"},{"id":364,"name":"The Faces Truck","category":"Art/Collaborative"},{"id":365,"name":"Thumb Wrestling Tournament","category":"Games"},{"id":366,"name":"Dorm Room / Study Truck (But No Studying)","category":"Themed Environment"},{"id":367,"name":"Fake Burial Ceremony","category":"Absurdist"},{"id":368,"name":"Late Night Show Interview Truck","category":"Performance"},{"id":369,"name":"Beauty Pageant Simulator","category":"Performance"},{"id":370,"name":"Human Dissection Car","category":"Absurdist"},{"id":371,"name":"You Don't Wanna Study? Imagine Being Poor Truck","category":"Comedy"},{"id":372,"name":"The Lock-In Truck (Buff Guy Yelling to Lock In)","category":"Comedy"},{"id":373,"name":"Dysentery Simulator (Oregon Trail)","category":"Gaming/Sim"},{"id":374,"name":"The Opposites Truck","category":"Comedy"},{"id":375,"name":"Human-Scale Hamster Wheel","category":"Physical"},{"id":376,"name":"The Rapture Experience","category":"Absurdist"},{"id":377,"name":"Cramp Simulator","category":"Physical"},{"id":378,"name":"Beach Truck","category":"Themed Environment"},{"id":379,"name":"That Pretend to Be Your Dad and Say They're Proud Truck","category":"Emotional"},{"id":380,"name":"Crucifixion Experience","category":"Historical/Absurdist"},{"id":381,"name":"Spiders Truck","category":"Horror"},{"id":382,"name":"Pirate Ship Simulator","category":"Themed Environment"},{"id":383,"name":"Row Boat Simulator","category":"Simulator"},{"id":384,"name":"Male Loneliness Epidemic Truck","category":"Social Commentary"},{"id":385,"name":"Taking the ACT Simulator","category":"Educational/Comedy"},{"id":386,"name":"Row Row Row Your Boat — Large Musical Round","category":"Music"},{"id":387,"name":"Get Stuck in a Mouse Trap","category":"Physical"},{"id":388,"name":"Mouse Trap (The Board Game)","category":"Games"},{"id":389,"name":"Baby Reveal Truck","category":"Experience"},{"id":390,"name":"The Riff-Off Truck","category":"Music"},{"id":391,"name":"Ball Pit Truck","category":"Physical"},{"id":392,"name":"Boxing Tournament Truck","category":"Physical Challenge"},{"id":393,"name":"Photobooth Truck","category":"Art/Social"},{"id":394,"name":"Bottomless Pit","category":"Absurdist"},{"id":395,"name":"EMT Simulator","category":"Simulator"},{"id":396,"name":"Button Room","category":"Interactive"},{"id":397,"name":"Full Truck Bop It","category":"Games"},{"id":398,"name":"Carnival Games Truck","category":"Games"},{"id":399,"name":"Smoke Room (Theatre Fog)","category":"Sensory"},{"id":400,"name":"Hurricane/Tornado/Severe Weather Truck","category":"Simulator"},{"id":401,"name":"A Trucks Truck","category":"Meta/Absurdist"},{"id":402,"name":"Cannibalism Simulator","category":"Absurdist"},{"id":403,"name":"Photobooth + Decorate the Pictures","category":"Art"},{"id":404,"name":"Re-enact White Chicks (2004) Entirely","category":"Pop Culture"},{"id":405,"name":"Impossible Games Truck","category":"Games"},{"id":406,"name":"Tornado Warning Truck","category":"Sensory"},{"id":407,"name":"Pixar Lamp Crushes Someone","category":"Pop Culture"},{"id":408,"name":"Hand Skateboard Park","category":"Games"},{"id":409,"name":"Winter Truck with Real Snow","category":"Themed Environment"},{"id":410,"name":"PASTA Thrown Everywhere Truck","category":"Sensory"},{"id":411,"name":"Hot Dog Eating Contest Truck","category":"Food/Drink"},{"id":412,"name":"Human Bowling","category":"Physical"},{"id":413,"name":"Sushi Eating Contest","category":"Food/Drink"},{"id":414,"name":"Take a Chem Test Truck","category":"Educational"},{"id":415,"name":"Find the Imposter Truck","category":"Games"},{"id":416,"name":"Fishing Simulator (Plastic Rod, Magnetic Fish)","category":"Games"},{"id":417,"name":"Throw Spaghetti at the Wall to See What Sticks","category":"Absurdist"},{"id":418,"name":"Eat Trash Pasta Truck","category":"Absurdist"},{"id":419,"name":"The Diagnosis Truck","category":"Comedy"},{"id":420,"name":"The Wig Truck","category":"Interactive"},{"id":421,"name":"Family Feud Truck","category":"Games"},{"id":422,"name":"Bumper Chairs Truck","category":"Physical"},{"id":423,"name":"Steve Harvey Truck","category":"Pop Culture"},{"id":424,"name":"Entire Milkshake Bar Truck","category":"Food/Drink"},{"id":425,"name":"Smash or Pass Room","category":"Social Games"},{"id":426,"name":"Archaeology Truck — Dust Off Dinosaur Bones","category":"Educational"},{"id":427,"name":"Human Dance Dance Revolution (Dino Game)","category":"Interactive"},{"id":428,"name":"Become a Fossil Truck","category":"Absurdist"},{"id":429,"name":"Speedrunning IKEA Furniture Building","category":"Challenge"},{"id":430,"name":"Porta Potty Hotel","category":"Absurdist"},{"id":431,"name":"Smash or Pass the Squirrels of Campus","category":"Social Games"},{"id":432,"name":"Mini Golf Truck","category":"Games"},{"id":433,"name":"Mega Golf Truck","category":"Games"},{"id":434,"name":"Breakdance Room","category":"Music/Physical"},{"id":435,"name":"Mafia Henchman/Goon Simulator","category":"Character Experience"},{"id":436,"name":"Stepping on Legos Simulator","category":"Physical"},{"id":437,"name":"Drag Queen Truck","category":"Performance"},{"id":438,"name":"Truck Made Entirely of Cake","category":"Absurdist"},{"id":439,"name":"Kindergarten Simulator","category":"Simulator"},{"id":440,"name":"Pool Truck (Kick the Ball)","category":"Games"},{"id":441,"name":"Adoption Truck (Local Shelter Animals)","category":"Animals"},{"id":442,"name":"Hannibal Lecter Simulator","category":"Pop Culture"},{"id":443,"name":"Wet Socks Truck","category":"Sensory"},{"id":444,"name":"Nacho Truck","category":"Food/Drink"},{"id":445,"name":"Blindfold Truck (Everyone Blindfolded)","category":"Challenge"},{"id":446,"name":"Asking Teacher for a Bathroom Pass","category":"Comedy"},{"id":447,"name":"Diaper Changing Simulator","category":"Educational"},{"id":448,"name":"Candyland Truck","category":"Games"},{"id":449,"name":"Sewer Truck","category":"Themed Environment"},{"id":450,"name":"Infinite Ordering Pizza Truck","category":"Absurdist"},{"id":451,"name":"Walking on Eggs (Floor is Eggs)","category":"Physical"},{"id":452,"name":"Flavored Wallpaper (Willy Wonka)","category":"Food/Drink"},{"id":453,"name":"Magic School Bus Truck","category":"Pop Culture"},{"id":454,"name":"Turn Into a Teenage Mutant Ninja Turtle","category":"Pop Culture"},{"id":455,"name":"Learn Fighting from a Guy in a Rat Mask (Splinter)","category":"Pop Culture"},{"id":456,"name":"Washing Machine Truck","category":"Absurdist"},{"id":457,"name":"Floor is Lava with Furniture","category":"Games"},{"id":458,"name":"Confetti Room","category":"Sensory"},{"id":459,"name":"Hooters Simulator","category":"Comedy"},{"id":460,"name":"Job Interview Truck","category":"Simulator"},{"id":461,"name":"Macarena Truck","category":"Music"},{"id":462,"name":"Eating Inedible Things Truck","category":"Absurdist"},{"id":463,"name":"Orbeez Truck","category":"Sensory"},{"id":464,"name":"Grocery Store Truck","category":"Simulator"},{"id":465,"name":"Evil Lair / Evil Mafia Boss Truck","category":"Character Experience"},{"id":466,"name":"Marbles on the Floor Truck","category":"Physical"},{"id":467,"name":"Pool Noodle Fight Truck","category":"Physical"},{"id":468,"name":"Gordon Ramsay Insult Truck","category":"Comedy"},{"id":469,"name":"Spaghetti Ball Pit Truck","category":"Absurdist"},{"id":470,"name":"Gumballs on the Floor Truck","category":"Physical"},{"id":471,"name":"Mystery Diners (Between Trucks)","category":"Interactive"},{"id":472,"name":"Sentient Vegetables Truck","category":"Absurdist"},{"id":473,"name":"Cartoon Deaths Truck","category":"Comedy"},{"id":474,"name":"Sitcom Set Truck","category":"Pop Culture"},{"id":475,"name":"Guy Fieri Runs the Truck","category":"Character Experience"},{"id":476,"name":"BeanBoozle Truck","category":"Games"},{"id":477,"name":"Water Gun Fight Truck","category":"Physical"},{"id":478,"name":"Tell Lies Truck","category":"Social Games"},{"id":479,"name":"Chug a Full Bottle of Water Truck","category":"Challenge"},{"id":480,"name":"Eat Hot Chips and Be Bisexual Truck","category":"Pop Culture"},{"id":481,"name":"Eat Hot Food Without Showing It Truck","category":"Challenge"},{"id":482,"name":"Among Us Live Truck","category":"Games"},{"id":483,"name":"Do Crimes Simulator","category":"Simulator"},{"id":484,"name":"Would You Love Me If I Was a Worm/Snail Sim","category":"Absurdist"},{"id":485,"name":"Illegal Activities Truck","category":"Absurdist"},{"id":486,"name":"Car Breaking Down on the Freeway (Get Mugged)","category":"Simulator"},{"id":487,"name":"Dead Dad Truck","category":"Emotional"},{"id":488,"name":"Immersive Experience Brainstorm Truck","category":"Interactive"},{"id":489,"name":"Dad Left for Milk Truck","category":"Comedy"},{"id":490,"name":"Scream Every Time Someone Enters Truck","category":"Comedy"},{"id":491,"name":"Mommy ASMR Truck","category":"Sensory"},{"id":492,"name":"Dwayne 'The Truck' Johnson Truck","category":"Pop Culture"},{"id":493,"name":"DJ Horsegirl Truck","category":"Music"},{"id":494,"name":"Flat Earth Truck","category":"Comedy"},{"id":495,"name":"Situationship Debrief Truck","category":"Social"},{"id":496,"name":"Dead Mom Truck","category":"Emotional"},{"id":497,"name":"Pirating Harry Potter Movies Truck","category":"Comedy"},{"id":498,"name":"Dark Age Torture Methods Truck","category":"Historical Sim"},{"id":499,"name":"Hot Box Truck","category":"Sensory"},{"id":500,"name":"$20 is $20 Truck","category":"Comedy"},{"id":501,"name":"Freestyle Rap Truck","category":"Music/Performance"},{"id":502,"name":"FL Studio Music Production Truck","category":"Music"},{"id":503,"name":"Get Rabies Truck","category":"Absurdist"},{"id":504,"name":"Everyone Who Leaves Points and Shouts 'You're One of Them!'","category":"Social"},{"id":505,"name":"Make Babies Truck","category":"Comedy"},{"id":506,"name":"Masked Singer Truck","category":"Music/Games"},{"id":507,"name":"Student Debt Truck","category":"Social Commentary"},{"id":508,"name":"LeBron James Truck","category":"Pop Culture"},{"id":509,"name":"Clown Dress Up Truck","category":"Performance"},{"id":510,"name":"Harry Styles Concert (Harry Actually Shows Up)","category":"Music/Experience"},{"id":511,"name":"Dance Moms Pyramid Truck","category":"Pop Culture"},{"id":512,"name":"A Cappella Truck","category":"Music"},{"id":513,"name":"Can I Get $20? Truck","category":"Social"},{"id":514,"name":"One Truck Filled with 100,000 Pennies","category":"Sensory"},{"id":515,"name":"Dr. Phil Truck","category":"Pop Culture"},{"id":516,"name":"RuPaul's Drag Race Truck","category":"Performance"},{"id":517,"name":"Tiger Woods Driving Simulator (Golf and Car)","category":"Pop Culture"},{"id":518,"name":"Judge Judy Truck","category":"Pop Culture"},{"id":519,"name":"Gleek Truck","category":"Music/Pop Culture"},{"id":520,"name":"DUI Speedrun Truck","category":"Comedy"},{"id":521,"name":"Live TV Show Host with Fake Celebs","category":"Performance"},{"id":522,"name":"Wendy Williams Truck","category":"Pop Culture"},{"id":523,"name":"Yaoi Truck","category":"Pop Culture"},{"id":524,"name":"Not-a-Truck Truck","category":"Absurdist"},{"id":525,"name":"Truck Truck Goose","category":"Games"},{"id":526,"name":"Free Haircut Truck","category":"Experience"},{"id":527,"name":"GTA Truck","category":"Gaming/Sim"},{"id":528,"name":"Black Market Surgeries Truck","category":"Comedy"},{"id":529,"name":"Staring Contest Truck","category":"Games"},{"id":530,"name":"Ronald Reagan Truck","category":"Historical Sim"},{"id":531,"name":"Locked in a Truck with a Tiger","category":"Horror"},{"id":532,"name":"Papa's Pizzeria Truck","category":"Gaming/Sim"},{"id":533,"name":"Watch Paint Dry","category":"Absurdist"},{"id":534,"name":"Passive Aggressive Truck","category":"Comedy"},{"id":535,"name":"Slap Jack Truck","category":"Games"},{"id":536,"name":"Ozempic Truck","category":"Social Commentary"},{"id":537,"name":"Abby Lee Miller Truck","category":"Pop Culture"},{"id":538,"name":"Whispering Crane Night Market","category":"Themed Environment"},{"id":539,"name":"Mom Truck","category":"Comedy"},{"id":540,"name":"Slight Inconvenience Truck","category":"Comedy"},{"id":541,"name":"Camping in a Truck (Nature Sounds)","category":"Themed Environment"},{"id":542,"name":"Drunk Goggles + Lights Truck","category":"Sensory"},{"id":543,"name":"Food Fight Truck with White Lab Coats","category":"Physical"},{"id":544,"name":"Laser Maze (Like in the Movies)","category":"Interactive"},{"id":545,"name":"Tornado Truck (Industrial Fan + Water Nozzle)","category":"Simulator"},{"id":546,"name":"Feet Truck","category":"Absurdist"},{"id":547,"name":"Frat House Initiation Truck","category":"Social Sim"},{"id":548,"name":"Punk Band Made of Guests Truck","category":"Music"},{"id":549,"name":"Privatized American Prison System Truck","category":"Social Commentary"},{"id":550,"name":"Pie Smashing Truck","category":"Physical"},{"id":551,"name":"Industrial Revolution Experience","category":"Historical Sim"},{"id":552,"name":"4D Narrative Ride (Mist When It Rains)","category":"Themed Environment"},{"id":553,"name":"Dune Themed (Real Sand + Projections)","category":"Pop Culture"},{"id":554,"name":"Sound Waves Visualized with Community Spotify Playlist","category":"Music/Art"},{"id":555,"name":"LEGO Room","category":"Games"},{"id":556,"name":"Human Roller Dogs Truck","category":"Absurdist"},{"id":557,"name":"Tron Themed with LED Strips Truck","category":"Pop Culture"},{"id":558,"name":"Trance Room (Flashing Lights, Ambient Sounds)","category":"Sensory/Music"},{"id":559,"name":"Two Trucks Connected into a Bigger Space","category":"Interactive"},{"id":560,"name":"Awkward Classy Dinner (Waiters Never Leave)","category":"Social"},{"id":561,"name":"Alice in Wonderland Trippy Room","category":"Pop Culture"},{"id":562,"name":"Space Themed Truck","category":"Themed Environment"},{"id":563,"name":"Music Connections Room","category":"Music/Social"},{"id":564,"name":"Casino Style Truck with Puzzles","category":"Games"},{"id":565,"name":"Tea Party with Mad Hatter","category":"Pop Culture"},{"id":566,"name":"Family Game Night (Big Scale)","category":"Games"},{"id":567,"name":"Olympics in a Truck","category":"Physical Challenge"},{"id":568,"name":"Rage Room Truck","category":"Physical"},{"id":569,"name":"6-Seat Haunted Cinema (Movie Trailers)","category":"Horror"},{"id":570,"name":"Deception Truck (Scary Outside, Childish Inside)","category":"Themed Environment"},{"id":571,"name":"Open Mic Truck","category":"Performance"},{"id":572,"name":"Zen Room (Nature Projections, Fairy Lights)","category":"Themed Environment"},{"id":573,"name":"Group Building Truck (Ask Visitors for Tools)","category":"Interactive"},{"id":574,"name":"Bake Cookies Truck (Instruction-Based)","category":"Food/Drink"},{"id":575,"name":"Tiny RC Car Race Track","category":"Games"},{"id":576,"name":"Memories Stations Truck","category":"Art"},{"id":577,"name":"Barbie/Plastic Themed Truck","category":"Themed Environment"},{"id":578,"name":"Your Mom's Photos Truck","category":"Comedy"},{"id":579,"name":"Blank Canvas / Mural Truck","category":"Art"},{"id":580,"name":"Music Box / DJ Room","category":"Music/Interactive"},{"id":581,"name":"Circus Themed Truck (Games, Prizes, Food)","category":"Themed Environment"},{"id":582,"name":"Nebraska Football Truck","category":"Pop Culture"},{"id":583,"name":"Medieval Truck with Assigned Roles","category":"Interactive"},{"id":584,"name":"Cozy Christmas Truck","category":"Seasonal"},{"id":585,"name":"Yelling Welcome Truck","category":"Comedy"},{"id":586,"name":"Barbie Party Room (Pink Disco, Plastic Actors)","category":"Themed Environment"},{"id":587,"name":"Dance Circle Entry (Mamma Mia Scene)","category":"Music/Interactive"},{"id":588,"name":"Human Body Display Truck","category":"Educational"},{"id":589,"name":"Guy Kills You with a Great Sword Truck","category":"Comedy"},{"id":590,"name":"Fully Digital House (Projectors, Light-Up Furniture)","category":"Interactive"},{"id":591,"name":"Scary Muppets Truck","category":"Horror/Pop Culture"},{"id":592,"name":"Cameras Everywhere Surveillance Truck","category":"Interactive"},{"id":593,"name":"Duck Truck (Baby Ducks + Rubber Ducks Everywhere)","category":"Animals"},{"id":594,"name":"Mario World Truck (Bright Lights, 8-Bit Music)","category":"Gaming/Sim"},{"id":595,"name":"Shrinking Truck","category":"Themed Environment"},{"id":596,"name":"Become a Tree Truck","category":"Absurdist"},{"id":597,"name":"Inside of a Blender Truck","category":"Absurdist"},{"id":598,"name":"Fairytale Themed Truck","category":"Themed Environment"},{"id":599,"name":"Wizard and Magic Truck","category":"Themed Environment"},{"id":600,"name":"Room Full of Buttons (One Does a Light Show + Juice)","category":"Interactive"},{"id":601,"name":"Mini Carnival/Circus Funhouse","category":"Themed Environment"},{"id":602,"name":"Scary Outside / Sweet Dog + Old Lady Inside Truck","category":"Themed Environment"},{"id":603,"name":"Cleaning Up a Murder Scene Truck (Candy for Silence)","category":"Interactive"},{"id":604,"name":"Ice Cream Parlour Truck","category":"Food/Drink"},{"id":605,"name":"Pillow Sumo Wrestling","category":"Physical"},{"id":606,"name":"Campy Halloween Themed Truck","category":"Seasonal"},{"id":607,"name":"Juice Bar Truck","category":"Food/Drink"},{"id":608,"name":"EMA Bakery Truck","category":"Food/Drink"},{"id":609,"name":"Twilight Team Edward vs Team Jacob Fight","category":"Pop Culture"},{"id":610,"name":"Floor Activates Dance Party When Everyone Stands on Spots","category":"Interactive"},{"id":611,"name":"Thirst Trap Truck","category":"Comedy"},{"id":612,"name":"Trash Bash Truck","category":"Interactive"},{"id":613,"name":"Improv Room with Theatre Props","category":"Performance"},{"id":614,"name":"Corn Pool Truck","category":"Absurdist"},{"id":615,"name":"Movie Theater with Student-Made Short Film Trailers","category":"Entertainment"},{"id":616,"name":"Christian Girl Autumn Truck","category":"Pop Culture"},{"id":617,"name":"Mock Trial with Actor Jury Members","category":"Interactive"},{"id":618,"name":"Jeopardy Truck","category":"Games"},{"id":619,"name":"Iridescent Lotion to Prove You're a Vampire","category":"Pop Culture"},{"id":620,"name":"Wii Sports / Gameplay Room","category":"Gaming/Sim"},{"id":621,"name":"Textured Painting Walk-Through (Immersive Van Gogh Style)","category":"Art"},{"id":622,"name":"Room of Buttons Changing Lights, Music, Smell","category":"Interactive"},{"id":623,"name":"Dan Novy Museum Truck","category":"Comedy"},{"id":624,"name":"Bass Boosted Truck","category":"Sensory/Music"},{"id":625,"name":"Nonalcoholic Speakeasy with Mysterious Storyline","category":"Themed Environment"},{"id":626,"name":"Bar with Billiard Table and Bartender Truck","category":"Themed Environment"},{"id":627,"name":"Sensory Deprivation Task Challenge","category":"Challenge"},{"id":628,"name":"Mystery Liquid Mixing Tubes Truck","category":"Interactive"},{"id":629,"name":"Sperm Costume Race to the Egg","category":"Comedy"},{"id":630,"name":"Uncomfortable Hair/Fur Rug Truck","category":"Sensory"},{"id":631,"name":"Crystal Cave Truck (Dark with Glowing Gems)","category":"Themed Environment"},{"id":632,"name":"Room of Pain Truck","category":"Sensory"},{"id":633,"name":"Wheel of Fortune Truck","category":"Games"},{"id":634,"name":"Live Sketch Photo Booth","category":"Art"},{"id":635,"name":"Paintball / Water Balloon Fight (Coveralls Provided)","category":"Physical"},{"id":636,"name":"Walk Through the Inside of a Body Part","category":"Educational"},{"id":637,"name":"Handed a Script to Act Out (No Explanation)","category":"Performance"},{"id":638,"name":"Bubble Room Truck","category":"Sensory"},{"id":639,"name":"Dating Simulation with Mythical Creatures","category":"Social Games"},{"id":640,"name":"Just a Lottery Truck","category":"Games"},{"id":641,"name":"Penalty Shot Inside Truck","category":"Physical"},{"id":642,"name":"Temporary Tattoo Truck","category":"Art/Experience"},{"id":643,"name":"Alternate Dimension Saloon","category":"Themed Environment"},{"id":644,"name":"Childhood Wonder / Growing Up Experience","category":"Emotional"},{"id":645,"name":"Tickle Truck","category":"Absurdist"},{"id":646,"name":"Inside a Purse (Shrunken Person POV)","category":"Themed Environment"},{"id":647,"name":"Ren Faire Truck (Everyone Gets a Turkey Leg)","category":"Themed Environment"},{"id":648,"name":"Truck Filled with 1,000,000 Orbeez","category":"Sensory"},{"id":649,"name":"Bungee Workout Truck","category":"Physical"},{"id":650,"name":"Zen Garden Truck","category":"Themed Environment"},{"id":651,"name":"ASMR Room Truck","category":"Sensory"},{"id":652,"name":"Honey I Shrunk the Kids Backyard","category":"Pop Culture"},{"id":653,"name":"Mad Scientist Experience Truck","category":"Interactive"},{"id":654,"name":"Power Ranger Truck","category":"Pop Culture"},{"id":655,"name":"Arcade Room Truck","category":"Gaming/Sim"},{"id":656,"name":"Surreal Food Truck (Meow Wolf Meat Sculpture Style)","category":"Art/Food"},{"id":657,"name":"You've Survived Open Studios 2026 (Merch Truck)","category":"Experience"},{"id":658,"name":"Metamorphosis / Nature Cycle Truck","category":"Themed Environment"},{"id":659,"name":"Dude Perfect Trick Shot Room","category":"Physical"},{"id":660,"name":"UV / Blacklight Painting Area","category":"Art"},{"id":661,"name":"Zombie Outbreak Room Truck","category":"Horror"},{"id":662,"name":"Beyblade Arena Truck","category":"Games"},{"id":663,"name":"Synesthesia Experience Truck","category":"Sensory"},{"id":664,"name":"Mormon Missionary Experience Truck","category":"Comedy"},{"id":665,"name":"Turkish Ice Cream Trick Guy Truck","category":"Comedy"},{"id":666,"name":"Beginner/Intermediate Escape Room Truck","category":"Interactive"},{"id":667,"name":"Build Piece by Piece (Minecraft Magnetic Blocks)","category":"Art/Games"},{"id":668,"name":"Blind Deaf Mute Sundae Challenge","category":"Challenge"},{"id":669,"name":"Fight Night Boxing Truck (Safe)","category":"Physical Challenge"},{"id":670,"name":"Storm Room Truck","category":"Simulator"},{"id":671,"name":"Knight School Truck","category":"Historical Sim"},{"id":672,"name":"Pillow Fight Truck","category":"Physical"},{"id":673,"name":"Alien Invasion Truck","category":"Interactive"},{"id":674,"name":"Mushroom / Fairy Land Truck","category":"Themed Environment"},{"id":675,"name":"Microwave Simulation (You're a Hot Dog)","category":"Absurdist"},{"id":676,"name":"Prism / Light Distortion Truck","category":"Sensory"},{"id":677,"name":"Build a Family Truck","category":"Social Sim"},{"id":678,"name":"Gay / Ally Truck","category":"Social"},{"id":679,"name":"Lying Truck","category":"Social Games"},{"id":680,"name":"Flour Truck","category":"Absurdist"},{"id":681,"name":"VJ Room Truck","category":"Music/Art"},{"id":682,"name":"Truck of Doom and Despair","category":"Emotional"},{"id":683,"name":"White Women 'Exercise' Truck","category":"Comedy"},{"id":684,"name":"Ballroom Truck","category":"Music/Performance"},{"id":685,"name":"Sprite Challenge Truck","category":"Challenge"},{"id":686,"name":"Pet Adoption Truck (Local Shelter Animals)","category":"Animals"},{"id":687,"name":"Domain Expansion Clash Truck (Jujutsu Kaisen)","category":"Pop Culture"},{"id":688,"name":"Pickle Truck","category":"Food/Absurdist"},{"id":689,"name":"FedEx Packing Truck","category":"Simulator"},{"id":690,"name":"Cracker Tasting Truck","category":"Food/Drink"},{"id":691,"name":"Fight Club Truck","category":"Pop Culture"},{"id":692,"name":"Stuck with a Non-Showering Person Truck","category":"Sensory/Comedy"},{"id":693,"name":"Robot Building Truck","category":"Educational"},{"id":694,"name":"Licensed Therapist Truck","category":"Experience"},{"id":695,"name":"Golf Truck","category":"Games"},{"id":696,"name":"Foam Machine Room Truck","category":"Sensory"},{"id":697,"name":"Truck Filled with 1,000,000 Bees","category":"Absurdist"},{"id":698,"name":"HR Cottage Truck","category":"Comedy"},{"id":699,"name":"Building the Great Pyramids Truck","category":"Historical Sim"},{"id":700,"name":"EVIL TRUCK","category":"Absurdist"},{"id":701,"name":"Chicken Salad Truck","category":"Food/Drink"}];
+
+// ── Firebase init ────────────────────────────────────────────────────────────
+let db = null;
+const COLLECTION = 'votes';
+
+function initFirebase() {
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    return true;
+  } catch(e) {
+    console.error('Firebase init failed:', e);
+    return false;
+  }
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  name: '',
+  search: '',
+  cat: '',
+  selected: new Set(),
+  page: 'vote',
+  submitted: false,
+  resultsTab: 'top',
+  adminUnlocked: false,
+  resultsData: null,
+  firebaseOk: false,
+};
+
+// ── DOM helpers ──────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  $('page-' + name).classList.add('active');
+  state.page = name;
+  window.scrollTo(0, 0);
+}
+
+// ── Category filter population ───────────────────────────────────────────────
+function populateCatFilter() {
+  const cats = [...new Set(IDEAS.map(i => i.category))].sort();
+  const sel = $('cat-filter');
+  cats.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+}
+
+// ── Ideas grid ───────────────────────────────────────────────────────────────
+function renderGrid() {
+  const q = state.search.toLowerCase().trim();
+  const filtered = IDEAS.filter(idea => {
+    const matchSearch = !q || idea.name.toLowerCase().includes(q) || String(idea.id) === q;
+    const matchCat = !state.cat || idea.category === state.cat;
+    return matchSearch && matchCat;
+  });
+
+  const grid = $('ideas-grid');
+  const count = $('grid-count');
+  const hint = $('grid-hint');
+  const chips = $('chips');
+  const counter = $('header-counter');
+
+  const sel = state.selected;
+  const remaining = MAX_VOTES - sel.size;
+
+  counter.textContent = `${sel.size} / ${MAX_VOTES} selected`;
+  counter.classList.toggle('ready', sel.size === MAX_VOTES);
+  count.innerHTML = `<strong>${filtered.length}</strong> of 701 ideas shown`;
+  hint.textContent = remaining > 0 ? `pick ${remaining} more` : 'ready to submit!';
+
+  // Chips
+  chips.innerHTML = [...sel].map(id => {
+    const idea = IDEAS.find(i => i.id === id);
+    return idea ? `<span class="chip" data-id="${id}">#${id}</span>` : '';
+  }).join('');
+  chips.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => { state.selected.delete(+c.dataset.id); renderGrid(); updateSubmit(); });
+  });
+
+  // Grid cards
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="no-results">No ideas match your search.</div>';
+  } else {
+    grid.innerHTML = filtered.map(idea => {
+      const isSel = sel.has(idea.id);
+      const isDimmed = !isSel && sel.size >= MAX_VOTES;
+      return `<button class="idea-card${isSel ? ' selected' : ''}${isDimmed ? ' dimmed' : ''}"
+        data-id="${idea.id}" ${isDimmed ? 'disabled' : ''}>
+        <span class="idea-num">#${idea.id}</span>
+        <span>
+          <span>${esc(idea.name)}</span>
+          <span class="idea-cat">${esc(idea.category)}</span>
+        </span>
+      </button>`;
+    }).join('');
+    grid.querySelectorAll('.idea-card:not([disabled])').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = +card.dataset.id;
+        if (state.selected.has(id)) state.selected.delete(id);
+        else if (state.selected.size < MAX_VOTES) state.selected.add(id);
+        renderGrid();
+        updateSubmit();
+      });
+    });
+  }
+}
+
+function updateSubmit() {
+  $('submit-btn').disabled = state.selected.size < MAX_VOTES || !state.name.trim();
+}
+
+// ── Submit vote ──────────────────────────────────────────────────────────────
+async function submitVote() {
+  const name = state.name.trim();
+  if (!name || state.selected.size !== MAX_VOTES) return;
+
+  $('submit-btn').disabled = true;
+  $('submit-btn').textContent = 'Saving…';
+  $('vote-error').innerHTML = '';
+
+  if (!state.firebaseOk) {
+    showError('Firebase is not configured yet. See the setup instructions in the HTML file.');
+    $('submit-btn').disabled = false;
+    $('submit-btn').textContent = 'Submit my top 10';
+    return;
+  }
+
+  try {
+    // Check for duplicate name
+    const existing = await db.collection(COLLECTION).doc(name).get();
+    if (existing.exists) {
+      showError(`"${name}" has already voted. If this is an error, contact your instructor.`);
+      $('submit-btn').disabled = false;
+      $('submit-btn').textContent = 'Submit my top 10';
+      return;
+    }
+
+    await db.collection(COLLECTION).doc(name).set({
+      name,
+      picks: [...state.selected],
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    state.submitted = true;
+    renderDonePage();
+    showPage('done');
+  } catch(e) {
+    showError('Could not save your vote. Check your internet connection and try again.');
+    $('submit-btn').disabled = false;
+    $('submit-btn').textContent = 'Submit my top 10';
+  }
+}
+
+function showError(msg) {
+  $('vote-error').innerHTML = `<div class="notice error">${esc(msg)}</div>`;
+}
+
+// ── Done page ────────────────────────────────────────────────────────────────
+function renderDonePage() {
+  $('done-name-msg').textContent = `Thanks, ${state.name} — your ${MAX_VOTES} picks are locked in.`;
+  const picks = IDEAS.filter(i => state.selected.has(i.id));
+  $('done-picks').innerHTML = picks.map((idea, n) =>
+    `<div class="pick-row"><span class="pick-n">${n+1}</span><span>${esc(idea.name)}</span></div>`
+  ).join('');
+}
+
+// ── Results ──────────────────────────────────────────────────────────────────
+async function loadResults() {
+  if (!state.firebaseOk) {
+    $('results-list').innerHTML = '<div style="padding:2rem;text-align:center;color:#7a7670;font-size:14px;">Firebase not configured — no results yet.</div>';
+    return;
+  }
+
+  $('results-list').innerHTML = '<div style="padding:2rem;text-align:center;font-size:14px;color:#7a7670;">Loading…</div>';
+
+  try {
+    const snap = await db.collection(COLLECTION).get();
+    const counts = {};
+    const voters = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      voters.push(d);
+      (d.picks || []).forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+    });
+
+    const results = IDEAS.map(i => ({ ...i, votes: counts[i.id] || 0 }))
+      .sort((a, b) => b.votes - a.votes);
+
+    state.resultsData = { results, voters };
+    renderResultsList();
+    renderStats();
+    if (state.adminUnlocked) renderVoterTable(voters);
+  } catch(e) {
+    $('results-list').innerHTML = '<div style="padding:2rem;text-align:center;color:#8b1a1a;font-size:14px;">Error loading results. Check your Firebase config.</div>';
+  }
+}
+
+function renderStats() {
+  if (!state.resultsData) return;
+  const { results, voters } = state.resultsData;
+  $('stat-voters').textContent = voters.length;
+  $('stat-ideas').textContent = results.filter(r => r.votes > 0).length;
+  $('stat-top').textContent = results[0]?.votes ?? 0;
+}
+
+function renderResultsList() {
+  if (!state.resultsData) return;
+  const { results } = state.resultsData;
+  const tab = state.resultsTab;
+
+  let display;
+  if (tab === 'top') display = results.slice(0, 30);
+  else if (tab === 'all') display = results;
+  else display = results.filter(r => r.votes === 0);
+
+  const maxVotes = results[0]?.votes || 1;
+
+  if (!display.length) {
+    $('results-list').innerHTML = '<div style="padding:2rem;text-align:center;color:#7a7670;font-size:14px;">Nothing here yet.</div>';
+    return;
+  }
+
+  $('results-list').innerHTML = display.map((r, i) => {
+    const globalRank = results.indexOf(r) + 1;
+    const pct = Math.round(r.votes / maxVotes * 100);
+    return `<div class="result-row">
+      <span class="result-rank${globalRank <= 3 ? ' podium' : ''}">${globalRank}</span>
+      <span class="result-name">${esc(r.name)}</span>
+      <div class="result-bar-wrap"><div class="result-bar" style="width:${pct}%"></div></div>
+      <span class="result-votes">${r.votes}v</span>
+    </div>`;
+  }).join('');
+}
+
+function renderVoterTable(voters) {
+  $('voter-tbody').innerHTML = voters.map((v, i) =>
+    `<tr>
+      <td>${i+1}</td>
+      <td>${esc(v.name)}</td>
+      <td class="voter-picks">${(v.picks||[]).join(', ')}</td>
+    </tr>`
+  ).join('') || '<tr><td colspan="3" style="color:#7a7670">No votes yet</td></tr>';
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  state.firebaseOk = initFirebase();
+  populateCatFilter();
+  renderGrid();
+
+  // Name input
+  $('voter-name').addEventListener('input', e => { state.name = e.target.value; updateSubmit(); });
+
+  // Search
+  $('search-box').addEventListener('input', e => { state.search = e.target.value; renderGrid(); });
+
+  // Category filter
+  $('cat-filter').addEventListener('change', e => { state.cat = e.target.value; renderGrid(); });
+
+  // Submit
+  $('submit-btn').addEventListener('click', submitVote);
+
+  // Nav
+  $('nav-results').addEventListener('click', () => { showPage('results'); loadResults(); });
+  $('done-to-results').addEventListener('click', () => { showPage('results'); loadResults(); });
+  $('results-back').addEventListener('click', () => showPage(state.submitted ? 'done' : 'vote'));
+  $('results-refresh').addEventListener('click', loadResults);
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.resultsTab = tab.dataset.tab;
+      renderResultsList();
+    });
+  });
+
+  // Admin
+  $('admin-unlock-btn').addEventListener('click', () => {
+    const pw = $('admin-pass-input').value;
+    if (pw === ADMIN_PASSWORD) {
+      state.adminUnlocked = true;
+      $('admin-locked').style.display = 'none';
+      $('admin-panel').style.display = 'block';
+      if (state.resultsData) renderVoterTable(state.resultsData.voters);
+    } else {
+      $('admin-error').innerHTML = '<div class="notice error">Wrong password.</div>';
+    }
+  });
+  $('admin-pass-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('admin-unlock-btn').click(); });
+
+  // Hide loading screen
+  setTimeout(() => {
+    $('loading-screen').classList.add('hide');
+    setTimeout(() => $('loading-screen').remove(), 300);
+  }, 400);
+});
+</script>
+</body>
+</html>
